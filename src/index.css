@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand-primary: #FF7900;
+    --color-brand-primary-light: #FF9630;
+    --color-brand-primary-dark: #D0620C;
+    --color-brand-primary-subtle: rgba(255, 121, 0, 0.12);
+    --color-brand-secondary: #406D87;
+    --color-brand-secondary-light: #678498;
+    --color-brand-secondary-dark: #32556D;
+    --color-brand-secondary-subtle: rgba(64, 109, 135, 0.12);
+    --color-brand-primary-hover: #FF8500;
+    --color-brand-primary-active: #FF9630;
+    --color-brand-secondary-hover: #557488;
+    --color-brand-secondary-active: #678498;
+
+    --color-on-brand-primary: #FFFFFF;
+    --color-on-brand-secondary: #FFFFFF;
+
+    --color-status-success: #14B8A6;
+    --color-status-success-light: #43C6B7;
+    --color-status-success-dark: #0E8074;
+    --color-status-success-subtle: rgba(20, 184, 166, 0.12);
+    --color-status-error: #D14343;
+    --color-status-error-light: #DA6868;
+    --color-status-error-dark: #922E2E;
+    --color-status-error-subtle: rgba(209, 67, 67, 0.12);
+    --color-status-warning: #FFB020;
+    --color-status-warning-light: #FFBF4C;
+    --color-status-warning-dark: #B27B16;
+    --color-status-warning-subtle: rgba(255, 176, 32, 0.12);
+    --color-status-info: #2196F3;
+    --color-status-info-light: #64B6F7;
+    --color-status-info-dark: #0B79D0;
+    --color-status-info-subtle: rgba(33, 150, 243, 0.12);
+
+    --color-on-status-success: #FFFFFF;
+    --color-on-status-error: #FFFFFF;
+    --color-on-status-warning: #FFFFFF;
+    --color-on-status-info: #FFFFFF;
+
+    --color-text-primary: #F3F4F6;
+    --color-text-secondary: #9CA3AF;
+    --color-text-tertiary: #6B7280;
+    --color-text-disabled: rgba(255, 255, 255, 0.38);
+    --color-text-inverse: #111827;
+    --color-text-link: #828DF8;
+    --color-text-link-hover: #60A5FA;
+
+    --color-surface-base: #161616;
+    --color-surface-elevated: #191919;
+    --color-surface-raised: #1C1C1C;
+    --color-surface-overlay: #191919;
+    --color-surface-input: #191919;
+
+    --color-background-base: #101010;
+    --color-background-default: #161616;
+    --color-background-subtle: #1C1C1C;
+
+    --color-border-default: #1F1F1F;
+    --color-border-subtle: #1C1C1C;
+    --color-border-strong: #2C2C2C;
+    --color-border-focus: #828DF8;
+
+    --color-interactive-hover: rgba(255, 255, 255, 0.04);
+    --color-interactive-focus: rgba(255, 255, 255, 0.12);
+    --color-interactive-active: rgba(255, 255, 255, 0.16);
+    --color-interactive-selected: rgba(255, 255, 255, 0.08);
+
+    --color-divider: #1F1F1F;
+
+    --color-brand-primary-rgb: 255, 121, 0;
+    --color-brand-secondary-rgb: 64, 109, 135;
+
+    --font-family-sans: 'Inter';
+    --font-family-body: 'Nunito Sans';
+    --font-family-heading: 'Space Grotesk';
+    --font-family-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  }
+
+  html {
+    font-family: var(--font-family-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-background-default);
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-primary-subtle);
+    color: var(--color-text-primary);
+  }
+}
