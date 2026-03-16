@@ -6,6 +6,13 @@ export interface BracketPick {
   winner: Team
 }
 
+export interface SavedBracket {
+  id: string
+  name: string
+  createdAt: number
+  picks: Record<string, Team>
+}
+
 export interface BracketState {
   picks: Record<string, Team>
   bracket: BracketData
@@ -34,43 +41,122 @@ function decodePicksFromUrl(encoded: string, bracket: BracketData): Record<strin
   }
 }
 
-const STORAGE_KEY = 'bracket2026_picks_v3'
+const COLLECTION_KEY = 'mascot_madness_brackets'
+const ACTIVE_KEY = 'mascot_madness_active_bracket'
+const LEGACY_KEY = 'bracket2026_picks_v3'
 
-function loadPicks(bracket: BracketData): Record<string, Team> {
-  const params = new URLSearchParams(window.location.search)
-  const shared = params.get('picks')
-  if (shared) return decodePicksFromUrl(shared, bracket)
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+}
 
+function createBracket(name: string, picks: Record<string, Team> = {}): SavedBracket {
+  return { id: generateId(), name, createdAt: Date.now(), picks }
+}
+
+function loadCollection(): SavedBracket[] {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY)
+    const saved = localStorage.getItem(COLLECTION_KEY)
     if (saved) return JSON.parse(saved)
   } catch { /* ignore */ }
-  return {}
+
+  // Migrate from legacy single-bracket storage
+  try {
+    const legacy = localStorage.getItem(LEGACY_KEY)
+    if (legacy) {
+      const picks = JSON.parse(legacy)
+      const migrated = createBracket('My Bracket', picks)
+      return [migrated]
+    }
+  } catch { /* ignore */ }
+
+  return []
+}
+
+function loadActiveId(brackets: SavedBracket[]): string | null {
+  try {
+    const id = localStorage.getItem(ACTIVE_KEY)
+    if (id && brackets.some((b) => b.id === id)) return id
+  } catch { /* ignore */ }
+  return brackets[0]?.id ?? null
+}
+
+function saveCollection(brackets: SavedBracket[]) {
+  try {
+    localStorage.setItem(COLLECTION_KEY, JSON.stringify(brackets))
+    // Clean up legacy key after migration
+    localStorage.removeItem(LEGACY_KEY)
+  } catch { /* ignore */ }
+}
+
+function saveActiveId(id: string) {
+  try {
+    localStorage.setItem(ACTIVE_KEY, id)
+  } catch { /* ignore */ }
 }
 
 export function useBracketState() {
   const bracket = projected2026Bracket
-  const [picks, setPicks] = useState<Record<string, Team>>(() => loadPicks(bracket))
 
+  // Check for shared picks in URL first
+  const [sharedPicks] = useState<Record<string, Team> | null>(() => {
+    const params = new URLSearchParams(window.location.search)
+    const shared = params.get('picks')
+    if (shared) return decodePicksFromUrl(shared, bracket)
+    return null
+  })
+
+  const [brackets, setBrackets] = useState<SavedBracket[]>(() => {
+    if (sharedPicks) return loadCollection()
+    return loadCollection()
+  })
+
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    if (sharedPicks) return null // shared view doesn't select a bracket
+    return loadActiveId(brackets)
+  })
+
+  // If no brackets exist, create a default one
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(picks))
-    } catch { /* ignore */ }
-  }, [picks])
+    if (brackets.length === 0 && !sharedPicks) {
+      const first = createBracket('My Bracket')
+      setBrackets([first])
+      setActiveId(first.id)
+    }
+  }, [brackets.length, sharedPicks])
+
+  // Persist collection changes
+  useEffect(() => {
+    saveCollection(brackets)
+  }, [brackets])
+
+  // Persist active bracket ID
+  useEffect(() => {
+    if (activeId) saveActiveId(activeId)
+  }, [activeId])
+
+  const activeBracket = brackets.find((b) => b.id === activeId)
+  const picks = sharedPicks ?? activeBracket?.picks ?? {}
+  const isSharedView = sharedPicks !== null
+
+  const updateActivePicks = useCallback((updater: (prev: Record<string, Team>) => Record<string, Team>) => {
+    if (isSharedView || !activeId) return
+    setBrackets((prev) =>
+      prev.map((b) => b.id === activeId ? { ...b, picks: updater(b.picks) } : b),
+    )
+  }, [activeId, isSharedView])
 
   const makePick = useCallback((matchupKey: string, winner: Team) => {
-    setPicks((prev) => ({ ...prev, [matchupKey]: winner }))
-  }, [])
+    updateActivePicks((prev) => ({ ...prev, [matchupKey]: winner }))
+  }, [updateActivePicks])
 
   const clearPicks = useCallback(() => {
-    setPicks({})
-    localStorage.removeItem(STORAGE_KEY)
-  }, [])
+    updateActivePicks(() => ({}))
+  }, [updateActivePicks])
 
   const getShareUrl = useCallback(() => {
     const encoded = encodePicksToUrl(picks)
     const url = new URL(window.location.href)
-    url.pathname = '/'
+    url.pathname = url.pathname.replace(/#.*$/, '')
     url.searchParams.set('picks', encoded)
     return url.toString()
   }, [picks])
@@ -164,6 +250,58 @@ export function useBracketState() {
     }
   }, [getFinalFourMatchups, picks])
 
+  // Multi-bracket management
+  const createNewBracket = useCallback((name: string) => {
+    const newBracket = createBracket(name)
+    setBrackets((prev) => [...prev, newBracket])
+    setActiveId(newBracket.id)
+    return newBracket.id
+  }, [])
+
+  const duplicateBracket = useCallback((sourceId: string, newName: string) => {
+    const source = brackets.find((b) => b.id === sourceId)
+    if (!source) return null
+    const dup = createBracket(newName, { ...source.picks })
+    setBrackets((prev) => [...prev, dup])
+    setActiveId(dup.id)
+    return dup.id
+  }, [brackets])
+
+  const renameBracket = useCallback((id: string, name: string) => {
+    setBrackets((prev) => prev.map((b) => b.id === id ? { ...b, name } : b))
+  }, [])
+
+  const deleteBracket = useCallback((id: string) => {
+    setBrackets((prev) => {
+      const next = prev.filter((b) => b.id !== id)
+      if (next.length === 0) {
+        const fresh = createBracket('My Bracket')
+        setActiveId(fresh.id)
+        return [fresh]
+      }
+      if (activeId === id && next.length > 0) {
+        setActiveId(next[0]!.id)
+      }
+      return next
+    })
+  }, [activeId])
+
+  const switchBracket = useCallback((id: string) => {
+    setActiveId(id)
+  }, [])
+
+  const importSharedBracket = useCallback((name: string) => {
+    if (!sharedPicks) return null
+    const imported = createBracket(name, { ...sharedPicks })
+    setBrackets((prev) => [...prev, imported])
+    setActiveId(imported.id)
+    // Clear shared picks from URL
+    const url = new URL(window.location.href)
+    url.searchParams.delete('picks')
+    window.history.replaceState({}, '', url.toString())
+    return imported.id
+  }, [sharedPicks])
+
   const totalPicks = Object.keys(picks).length
   const totalGames = 63
 
@@ -183,6 +321,17 @@ export function useBracketState() {
     totalPicks,
     totalGames,
     progress: totalPicks / totalGames,
+    // Multi-bracket
+    brackets,
+    activeBracketId: activeId,
+    activeBracketName: activeBracket?.name ?? '',
+    isSharedView,
+    createNewBracket,
+    duplicateBracket,
+    renameBracket,
+    deleteBracket,
+    switchBracket,
+    importSharedBracket,
   }
 }
 
