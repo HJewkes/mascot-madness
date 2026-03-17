@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Sparkles, RotateCcw, Share2 } from 'lucide-react'
 import { useBracketContext } from '../../hooks/useBracketState'
+import { useScoring } from '../../hooks/useScoring'
 import { mascotProfiles, type MascotProfile } from '../../data/mascots'
 import { mascotGroundedImages } from '../../data/mascotGrounded'
 import type { Team } from '../../data/bracket2026'
@@ -305,6 +306,7 @@ export function MascotBattle() {
     getMatchups, getRound2Matchups, getSweet16Matchups, getElite8Matchup,
     getFinalFourMatchups, getChampionship } = state
   const [copied, setCopied] = useState(false)
+  const scoring = useScoring(state.picks)
 
   const regionKeys = ['south', 'midwest', 'west', 'east'] as const
   const regionNames: Record<string, string> = {
@@ -409,6 +411,8 @@ export function MascotBattle() {
     }
   }
 
+  const isSharedView = state.isSharedView
+
   // Check for champion
   const champion = state.getWinner('championship')
 
@@ -419,13 +423,28 @@ export function MascotBattle() {
         <h2 className="font-heading text-2xl font-bold text-text-primary mb-1">
           {mascotProfiles[champion.name]?.mascotName ?? champion.name} Wins!
         </h2>
-        <p className="text-text-secondary mb-6">
-          The {champion.name} {champion.mascot} are your Mascot Madness champions!
+        <p className="text-text-secondary mb-4">
+          The {champion.name} {champion.mascot} are {isSharedView ? 'the' : 'your'} Mascot Madness champions!
         </p>
+        {scoring.hasResults && (
+          <div className="mb-6 px-6 py-3 bg-surface-elevated border border-border rounded-xl">
+            <div className="text-xs font-bold text-text-tertiary uppercase tracking-wider mb-1">
+              ESPN Score
+            </div>
+            <div className="text-2xl font-heading font-bold text-status-success">
+              {scoring.score} <span className="text-sm text-text-tertiary font-normal">pts</span>
+            </div>
+            <div className="text-xs text-text-secondary mt-1">
+              {scoring.correctPicks} correct / {scoring.incorrectPicks} incorrect / {scoring.pendingPicks} pending
+            </div>
+          </div>
+        )}
         <div className="flex gap-3">
-          <button onClick={clearPicks} className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-status-error border border-border rounded-lg hover:bg-interactive-hover transition-colors">
-            <RotateCcw size={16} /> Battle Again
-          </button>
+          {!isSharedView && (
+            <button onClick={clearPicks} className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-status-error border border-border rounded-lg hover:bg-interactive-hover transition-colors">
+              <RotateCcw size={16} /> Battle Again
+            </button>
+          )}
           <button onClick={handleShare} className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-primary text-on-brand-primary rounded-lg hover:bg-brand-primary-hover transition-colors">
             <Share2 size={16} /> {copied ? 'Link Copied!' : 'Share Results'}
           </button>
@@ -439,10 +458,27 @@ export function MascotBattle() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
         <div className="text-6xl mb-4">🏀</div>
         <h2 className="font-heading text-2xl font-bold text-text-primary mb-2">
-          Waiting for matchups...
+          {isSharedView ? 'Shared bracket is incomplete' : 'Waiting for matchups...'}
         </h2>
         <p className="text-text-secondary mb-6">
-          Complete the current round to unlock the next one.
+          {isSharedView
+            ? 'This shared bracket has not been fully filled out yet. Switch to the Bracket view to see what has been picked so far.'
+            : 'Complete the current round to unlock the next one.'}
+        </p>
+      </div>
+    )
+  }
+
+  // In shared view, don't show interactive battle UI for incomplete brackets
+  if (isSharedView) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <div className="text-6xl mb-4">🏀</div>
+        <h2 className="font-heading text-2xl font-bold text-text-primary mb-2">
+          Viewing shared bracket
+        </h2>
+        <p className="text-text-secondary mb-6">
+          This shared bracket is still in progress. Switch to the Bracket view to see the picks so far.
         </p>
       </div>
     )

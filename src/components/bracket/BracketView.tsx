@@ -9,6 +9,7 @@ import {
   type IRoundProps,
 } from 'react-brackets'
 import { useBracketContext } from '../../hooks/useBracketState'
+import { useScoring } from '../../hooks/useScoring'
 import type { Team } from '../../data/bracket2026'
 import { TeamDetailPanel } from './TeamDetailPanel'
 
@@ -27,25 +28,62 @@ interface PickContext {
   getWinner: (key: string) => Team | undefined
   onInspect: (team: Team) => void
   mobileBreakpoint: number
+  isReadOnly: boolean
+  getPickStatus: (key: string) => 'correct' | 'incorrect' | 'pending' | 'none'
+  hasResults: boolean
+}
+
+function ResultIndicator({ status }: { status: 'correct' | 'incorrect' | 'pending' | 'none' }) {
+  if (status === 'none' || status === 'pending') return null
+  return (
+    <span
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        flexShrink: 0,
+        backgroundColor: status === 'correct' ? '#22c55e' : '#ef4444',
+      }}
+      title={status === 'correct' ? 'Correct pick' : 'Incorrect pick'}
+    />
+  )
 }
 
 function TeamRow({ team, matchupKey, ctx }: { team: Team | undefined; matchupKey: string; ctx: PickContext }) {
   const winner = ctx.getWinner(matchupKey)
   const isWinner = team && winner?.name === team.name
+  const pickStatus = ctx.hasResults && isWinner ? ctx.getPickStatus(matchupKey) : 'none'
+
+  const bgColor = pickStatus === 'correct'
+    ? 'rgba(34, 197, 94, 0.15)'
+    : pickStatus === 'incorrect'
+      ? 'rgba(239, 68, 68, 0.15)'
+      : isWinner
+        ? 'rgba(255, 121, 0, 0.15)'
+        : '#1C1C1C'
+
+  const borderColor = pickStatus === 'correct'
+    ? '#22c55e'
+    : pickStatus === 'incorrect'
+      ? '#ef4444'
+      : isWinner
+        ? '#FF7900'
+        : 'transparent'
 
   return (
     <SeedTeam
       style={{
-        backgroundColor: isWinner ? 'rgba(255, 121, 0, 0.15)' : '#1C1C1C',
-        borderColor: isWinner ? '#FF7900' : 'transparent',
+        backgroundColor: bgColor,
+        borderColor,
         borderWidth: 1,
         borderStyle: 'solid',
         padding: '5px 8px',
-        cursor: team ? 'pointer' : 'default',
+        cursor: team && !ctx.isReadOnly ? 'pointer' : 'default',
         fontSize: 12,
         minWidth: 150,
+        opacity: ctx.isReadOnly && team && !isWinner ? 0.6 : 1,
       }}
-      onClick={() => team && ctx.makePick(matchupKey, team)}
+      onClick={() => team && !ctx.isReadOnly && ctx.makePick(matchupKey, team)}
     >
       {team ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
@@ -58,6 +96,7 @@ function TeamRow({ team, matchupKey, ctx }: { team: Team | undefined; matchupKey
           <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
             {team.name}
           </span>
+          <ResultIndicator status={pickStatus} />
           <button
             onClick={(e) => { e.stopPropagation(); ctx.onInspect(team) }}
             style={{ opacity: 0.3, cursor: 'pointer', flexShrink: 0, background: 'none', border: 'none', color: 'inherit', padding: 0 }}
@@ -166,7 +205,7 @@ function FinalFourSection({
   state: ReturnType<typeof useBracketContext>
   ctx: PickContext
 }) {
-  const { getFinalFourMatchups, getChampionship, getWinner, getShareUrl, clearPicks } = state
+  const { getFinalFourMatchups, getChampionship, getWinner, getShareUrl, clearPicks, isSharedView } = state
   const [copied, setCopied] = useState(false)
   const ffMatchups = getFinalFourMatchups()
   const ff0 = ffMatchups[0] ?? { key: 'ff-0', top: undefined, bottom: undefined }
@@ -221,12 +260,14 @@ function FinalFourSection({
               >
                 <Share2 size={14} /> {copied ? 'Link Copied!' : 'Share Bracket'}
               </button>
-              <button
-                onClick={clearPicks}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-tertiary hover:text-status-error transition-colors rounded-md hover:bg-interactive-hover"
-              >
-                <RotateCcw size={14} /> Reset
-              </button>
+              {!isSharedView && (
+                <button
+                  onClick={clearPicks}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-tertiary hover:text-status-error transition-colors rounded-md hover:bg-interactive-hover"
+                >
+                  <RotateCcw size={14} /> Reset
+                </button>
+              )}
             </div>
           </>
         )}
@@ -280,6 +321,7 @@ export function BracketView() {
   const state = useBracketContext()
   const [inspectedTeam, setInspectedTeam] = useState<Team | null>(null)
   const { makePick, getWinner, picks } = state
+  const scoring = useScoring(picks)
   const windowWidth = useWindowWidth()
   const isMobile = windowWidth < 600
 
@@ -303,6 +345,9 @@ export function BracketView() {
     getWinner,
     onInspect: setInspectedTeam,
     mobileBreakpoint: 0,
+    isReadOnly: state.isSharedView,
+    getPickStatus: scoring.getPickStatus,
+    hasResults: scoring.hasResults,
   }
 
   const regionLabel = (key: string) =>

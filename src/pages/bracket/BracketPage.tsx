@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { Trophy, Sparkles, RotateCcw, Share2, Plus, Copy, Trash2, ChevronDown, Pencil, Check, X, Download } from 'lucide-react'
+import { Trophy, Sparkles, RotateCcw, Share2, Plus, Copy, Trash2, ChevronDown, Pencil, Check, X, Download, Eye } from 'lucide-react'
 import { BracketView } from '../../components/bracket/BracketView'
 import { MascotBattle } from '../../components/bracket/MascotBattle'
 import { useBracketState, BracketProvider, type SavedBracket } from '../../hooks/useBracketState'
+import { useScoring } from '../../hooks/useScoring'
 
 type Mode = 'bracket' | 'mascot'
 
@@ -177,10 +178,11 @@ export default function BracketPage() {
   const [copied, setCopied] = useState(false)
   const state = useBracketState()
   const {
-    totalPicks, totalGames, clearPicks, getShareUrl, isSharedView,
+    totalPicks, totalGames, picks, clearPicks, getShareUrl, isSharedView,
     brackets, activeBracketId, activeBracketName,
     createNewBracket, duplicateBracket, renameBracket, deleteBracket, switchBracket, importSharedBracket,
   } = state
+  const scoring = useScoring(picks)
   const isComplete = totalPicks === totalGames
 
   const handleShare = async () => {
@@ -218,7 +220,7 @@ export default function BracketPage() {
                 />
               </div>
 
-              {/* Picks progress */}
+              {/* Picks progress + score */}
               <div className="flex items-center gap-2">
                 <div className="text-xs text-text-secondary whitespace-nowrap">
                   <span className="font-bold text-text-primary">{totalPicks}</span>
@@ -230,6 +232,12 @@ export default function BracketPage() {
                     style={{ width: `${(totalPicks / totalGames) * 100}%` }}
                   />
                 </div>
+                {scoring.hasResults && (
+                  <div className="text-xs whitespace-nowrap pl-1 border-l border-border">
+                    <span className="font-bold text-status-success">{scoring.score}</span>
+                    <span className="text-text-tertiary"> pts</span>
+                  </div>
+                )}
               </div>
 
               {/* Tabs + actions */}
@@ -252,7 +260,7 @@ export default function BracketPage() {
                     </button>
                   ))}
                 </nav>
-                {isComplete && !isSharedView && (
+                {(isComplete || isSharedView) && (
                   <button
                     onClick={handleShare}
                     className="flex items-center gap-1 px-2 py-1 sm:py-1.5 text-xs bg-brand-primary text-on-brand-primary rounded-md hover:bg-brand-primary-hover transition-colors"
@@ -274,6 +282,27 @@ export default function BracketPage() {
             </div>
           </div>
         </header>
+
+        {isSharedView && (
+          <div className="bg-brand-primary/10 border-b border-brand-primary/20">
+            <div className="max-w-[1600px] mx-auto px-3 sm:px-4 py-2 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <Eye size={16} className="text-brand-primary shrink-0" />
+                <span>
+                  <span className="font-medium text-text-primary">Viewing a shared bracket</span>
+                  {' '}&mdash; picks are read-only
+                </span>
+              </div>
+              <button
+                onClick={() => importSharedBracket('Imported Bracket')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-brand-primary text-on-brand-primary rounded-md hover:bg-brand-primary-hover transition-colors shrink-0"
+              >
+                <Download size={14} />
+                Import to my brackets
+              </button>
+            </div>
+          </div>
+        )}
 
         <main className="max-w-[1600px] mx-auto">
           {mode === 'bracket' && <BracketView />}
